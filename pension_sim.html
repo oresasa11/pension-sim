@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>60歳以降は働きたくないズボラな俺のための年金・資産シミュレーター</title>
+<style>
+  :root{
+    --paper:#f6f4ee; --ink:#23282b; --muted:#7a7d78; --line:#d9d5c9;
+    --pine:#2f5d50; --pine-soft:#e5ece8; --clay:#b5533a; --gold:#c9a24b;
+    --surplus:#2f5d50; --short:#b5533a; --shade:#efece3; --compare:#5b7ea3;
+    --card:#fffef9; --input-bg:#fff; --row-line:#eeebe1; --age-bg:#faf8f2;
+    --deplete-bg:#f6e4de; --unmet-bg:#fbf1de; --asset-hdr:#4a4640;
+    color-scheme:light;
+  }
+  /* OSがダークモードでも常にライト配色を使う（明るい色調を維持するため無効化） */
+  :root[data-theme="dark"]{
+    --paper:#1b1f1d; --ink:#e8e6df; --muted:#9a9d94; --line:#3a3f3a;
+    --pine:#4f9380; --pine-soft:#24332c; --clay:#d97a5c; --gold:#d9b563;
+    --surplus:#4f9380; --short:#d97a5c; --shade:#262b27; --compare:#8fb4d9;
+    --card:#212620; --input-bg:#262b25; --row-line:#333831; --age-bg:#262b25;
+    --deplete-bg:#3a2620; --unmet-bg:#3a3320; --asset-hdr:#2e2b27;
+    color-scheme:dark;
+  }
+  :root[data-theme="light"]{
+    --paper:#f6f4ee; --ink:#23282b; --muted:#7a7d78; --line:#d9d5c9;
+    --pine:#2f5d50; --pine-soft:#e5ece8; --clay:#b5533a; --gold:#c9a24b;
+    --surplus:#2f5d50; --short:#b5533a; --shade:#efece3; --compare:#5b7ea3;
+    --card:#fffef9; --input-bg:#fff; --row-line:#eeebe1; --age-bg:#faf8f2;
+    --deplete-bg:#f6e4de; --unmet-bg:#fbf1de; --asset-hdr:#4a4640;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:28px 20px 80px;}
+  header{border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:24px;}
+  h1{font-family:"Hiragino Mincho ProN","Yu Mincho",serif; font-weight:600;
+     font-size:26px; letter-spacing:.02em; margin:0;}
+  .sub{color:var(--muted); font-size:13px; margin-top:6px;}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:22px;}
+  @media(max-width:720px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 18px 20px;}
+  .card h2{font-size:12px; letter-spacing:.18em; text-transform:none; color:var(--pine);
+           margin:0 0 14px; font-weight:700; display:flex; align-items:center; gap:8px;}
+  .card h2::before{content:""; width:10px; height:10px; background:var(--pine); border-radius:2px; transform:rotate(45deg);}
+  .card h2.sub{margin-top:24px; padding-top:16px; border-top:1px dashed var(--line);}
+  .field{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px;}
+  body.showHints .field{margin-bottom:11px;}
+  .field label{font-size:13px; color:var(--ink); flex:1 1 auto; min-width:0;}
+  .hint{font-size:11px; color:red; display:none; margin-top:1px;}
+  .fieldRow3{flex-wrap:wrap; gap:10px 14px;}
+  .fieldRow3 .mini{display:flex; align-items:center; gap:6px;}
+  .fieldRow3 .mini label{font-size:13px; white-space:nowrap; flex:0 0 auto;}
+  .fieldRow3 .mini input[type=text]{width:90px;}
+  .fieldRow3 .seg button{padding:3px 10px;}
+  .fieldRow3Hint{line-height:1.5;}
+  body.showHints .hint{display:block;}
+  .field > div:last-child{display:flex; align-items:center; flex-shrink:0; white-space:nowrap;}
+  #drawStartAge{width:130px;}
+  #startAge{width:250px;}
+  input[type=number], input[type=text]{width:130px; padding:7px 9px; border:1px solid var(--line); border-radius:6px;
+    background:var(--input-bg); font-size:14px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink);}
+  input::placeholder{color:var(--muted); opacity:1;}
+  input:focus{outline:2px solid var(--pine); outline-offset:0; border-color:var(--pine);}
+  select{padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--input-bg); font-size:14px; color:var(--ink); -webkit-appearance:none; appearance:none;
+    background-image:linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 16px) center, calc(100% - 11px) center; background-size:5px 5px; background-repeat:no-repeat; padding-right:26px;}
+  .birthSel select{margin-right:2px;}
+  .birthSel select+select{margin-left:6px;}
+  .readout-val{display:inline-block; width:130px; padding:4px 9px; text-align:right;
+    font-size:14px; font-variant-numeric:tabular-nums; color:var(--ink);}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden;}
+  .seg button{border:0; background:var(--input-bg); padding:7px 12px; font-size:13px; cursor:pointer; color:var(--muted);}
+  .seg button.on{background:var(--pine); color:#fff;}
+  .seg button:disabled{opacity:.4; cursor:not-allowed;}
+  input[type=checkbox]{width:18px; height:18px; accent-color:var(--pine); cursor:pointer;}
+  input:disabled, input[type=text]:disabled{opacity:.5; cursor:not-allowed;}
+  .unit{font-size:12px; color:var(--muted); width:34px; display:inline-block; white-space:nowrap;}
+
+  .readout{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 22px;}
+  .stat{flex:1 1 150px; background:var(--pine); color:#fff; border-radius:10px; padding:14px 16px;}
+  .stat.alt{background:var(--card); color:var(--ink); border:1px solid var(--line);}
+  .stat .k{font-size:11px; letter-spacing:.1em; opacity:.85;}
+  .stat.alt .k{color:var(--muted); opacity:1;}
+  .stat .v{font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:4px;
+    font-family:"Hiragino Mincho ProN",serif;}
+  .stat .v small{font-size:13px; font-weight:400; opacity:.8;}
+
+  .tablewrap{border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--card);}
+  .tbl-title{display:flex; justify-content:space-between; align-items:baseline; padding:12px 16px; border-bottom:1px solid var(--line);}
+  .tbl-title h2{font-size:13px; margin:0; letter-spacing:.12em; color:var(--ink); font-weight:700;}
+  .tbl-title .note{font-size:11px; color:var(--muted);}
+  .scroll{}
+  table{border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums;}
+  thead th{position:sticky; top:0; background:var(--shade); z-index:2; font-weight:600; color:var(--ink);
+    padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; font-size:11px; letter-spacing:.03em;}
+  thead .grp{text-align:center; letter-spacing:.14em; font-size:11px; color:#fff; padding:6px;}
+  .grp.pension{background:var(--pine);}
+  .grp.asset{background:var(--asset-hdr);}
+  .grp.age-h{background:var(--ink);}
+  tbody td{padding:6px 10px; text-align:right; border-bottom:1px solid var(--row-line); white-space:nowrap;}
+  tbody td.age{text-align:center; font-weight:600; color:var(--ink); background:var(--age-bg); position:sticky; left:0;}
+  td.div{border-left:2px solid var(--ink);} th.div{border-left:2px solid var(--ink);}
+  .short{color:var(--short);} .surplus{color:var(--surplus);}
+  tr.startrow td{background:var(--pine-soft);}
+  tr.startrow td.age{background:var(--pine); color:#fff;}
+  tr.deplete td{background:var(--deplete-bg);}
+  tr.deplete td.age{background:var(--clay); color:#fff;}
+  tr.unmet td{background:var(--unmet-bg);}
+  tr.unmet td.age{background:var(--gold); color:#fff;}
+  .age-flags{display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:3px;}
+  .flag{font-size:10px; color:#fff; background:var(--pine); border-radius:3px; padding:1px 5px;}
+  .flag.d{background:var(--clay);}
+  .flag.u{background:var(--gold);}
+  .flag.c{background:var(--compare);}
+  .legend{font-size:11px; color:var(--muted); margin-top:10px; display:flex; gap:16px; flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .sw{width:11px; height:11px; border-radius:2px; display:inline-block;}
+  footer{margin-top:26px; font-size:11px; color:var(--muted); line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>60歳以降は働きたくないズボラな俺のための年金・資産シミュレーター</h1>
+    <div class="sub">受給開始の選び方と、手持ち資産の取り崩しを、60〜100歳で並べて見る
+      <label style="margin-left:6px; cursor:pointer;"><input type="checkbox" id="showSupplement" style="vertical-align:middle;"> 補足説明</label>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>現在状況</h2>
+      <div class="field">
+        <label>生年月日<span class="hint">今日時点の満年齢を自動計算</span></label>
+        <div class="birthSel">
+          <select id="birthYear"></select>年
+          <select id="birthMonth"></select>月
+          <select id="birthDay"></select>日
+        </div>
+      </div>
+      <div class="field">
+        <label>現在年齢<span class="hint">生年月日から自動計算。資産・生活費の起点になる</span></label>
+        <div><span id="currentAgeOut" class="readout-val">–</span><span class="unit">歳</span></div>
+      </div>
+      <div class="field">
+        <label>現在資産<span class="hint">現在年齢時点の運用元本</span></label>
+        <div><input type="text" inputmode="numeric" id="assetInit" value="2,000"><span class="unit">万円</span></div>
+      </div>
+      <div class="field">
+        <label>毎月の積立額<span class="hint">現在資産に加えて退職年齢まで毎月積み立てる額（受給開始時資産の予測に反映。退職後は「退職後毎月の積立額」に切り替わる）</span></label>
+        <div><input type="text" inputmode="numeric" id="monthlyContrib" value="0"><span class="unit">万円</span></div>
+      </div>
+      <div class="field">
+        <label>複利運用<span class="hint">年利回り</span></label>
+        <div><input type="number" id="rate" value="5" step="0.1"><span class="unit">%</span></div>
+      </div>
+      <div class="field">
+        <label>物価上昇率<span class="hint">年金の上乗せは物価−マクロスライド調整</span></label>
+        <select id="inflation"></select>
+      </div>
+
+      <h2 class="sub">労働収入</h2>
+      <div class="field">
+        <label>給与所得（手取月額）<span class="hint">退職までの手取り月収</span></label>
+        <div><input type="text" inputmode="numeric" id="salaryM" value="25"><span class="unit">万円</span></div>
+      </div>
+      <div class="field">
+        <label>月額生活費<span class="hint">在職中（今の物価での）毎月の生活費</span></label>
+        <div><input type="number" id="laborLivingM" value="25" step="0.1"><span class="unit">万円</span></div>
+      </div>
+      <div class="field">
+        <label>退職年齢<span class="hint">この年齢・月をもって給与収入が無くなる</span></label>
+        <div class="birthSel">
+          <select id="retireAgeYears"></select>歳
+          <select id="retireAgeMonths"></select>ヶ月
+        </div>
+      </div>
+      <div class="field">
+        <label>退職後毎月の積立額<span class="hint">退職後も毎月これだけ資産に積み立てる。0なら退職後は生活費の過不足分のみが資産を出入りする（黒字期は複利運用のみ）</span></label>
+        <div><input type="text" inputmode="numeric" id="postRetireContrib" value="0"><span class="unit">万円</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>年金受給</h2>
+      <div class="field">
+        <label>月額支給（65歳到達時）<span class="hint">ねんきんネット等で確認した65歳時点の月額（額面）。（調べもしないズボラさん向け目安）会社員：年収600万円・40年フル加入なら月17.9万円、個人事業主等（国民年金のみ）は40年フル加入なら満額月7.1万円（年収は無関係）。実際の65歳平均受給額（厚労省統計）は会社員男性16.6万円・女性10.7万円</span></label>
+        <div><input type="text" inputmode="numeric" id="pension65" value="200,000"><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label>年金天引き率<span class="hint">所得税・住民税・介護保険料・国民健康保険料（75歳以上は後期高齢者医療保険料）の天引き合計の目安。公的年金等控除が大きいため給与ほどは引かれない（目安10〜20%）。目安としては、年金額（月20〜25万円くらい）なら10〜15%程度、月35〜40万円を超えるような高めの年金だと20%前後まで上がってくる</span></label>
+        <div><input type="number" id="pensionDeductionRate" value="15" step="1"><span class="unit">%</span></div>
+      </div>
+      <div class="field">
+        <label>受給開始年齢<span class="hint">60〜75歳。65歳を基準に繰上げ月0.4%減・繰下げ月0.7%増で自動計算</span></label>
+        <div><select id="startAge"></select><span class="unit">歳</span></div>
+      </div>
+      <div class="field">
+        <label>年金手取り<span class="hint">月額支給・年金天引き率・受給開始年齢から自動計算した、受給開始時点の手取り月額</span></label>
+        <div><span id="outPensionNetCard" class="readout-val">–</span><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label>月額生活費<span class="hint">退職後（今の物価での）毎月の生活費</span></label>
+        <div><input type="number" id="livingM" value="20" step="0.1"><span class="unit">万円</span></div>
+      </div>
+
+      <h2 class="sub">受給開始時資産</h2>
+      <div class="field">
+        <label>受給開始時資産（現在資産からの運用予測）<span class="hint">現在資産＋毎月の積立額を、受給開始年齢まで複利運用のみ（在職収支は含めず）で計算した参考値</span></label>
+        <div><span id="outStartAssetForecast" class="readout-val">–</span><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label>受給開始時資産（無職の取り崩し）<span class="hint">上の運用予測（単純複利）と下の残予測（実際の収支込み）の差。不足額そのものに加え、早期の取り崩しで失った複利分も含む</span></label>
+        <div><span id="outUnemployedDraw" class="readout-val">–</span><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label>受給開始時資産（残予測）<span class="hint">実際の年次収支（給与/生活費の差額、退職後の取り崩し）を複利に反映しながら計算した額。目標未指定なら65歳到達時の実績（採用値）と一致する</span></label>
+        <div><span id="outRemainingForecast" class="readout-val">–</span><span class="unit">円</span></div>
+      </div>
+      <div class="field">
+        <label>受給開始時資産（目標）<span class="hint">取り崩しのソースとして採用する額。空欄なら左の残予測をそのまま使う</span></label>
+        <div><input type="text" inputmode="numeric" id="startAssetGoal" value=""><span class="unit">万円</span></div>
+      </div>
+      <div class="field">
+        <label>取り崩し年齢<span class="hint">年金だけで生活費が黒字の間は、この年齢に達するまで資産を取り崩さない（複利のみ）。赤字（生活費不足）は年齢に関わらず必ず取り崩す</span></label>
+        <div><select id="drawStartAge"></select><span class="unit">歳</span></div>
+      </div>
+      <div class="field">
+        <label>複利運用<span class="hint">年利回り（現在状況と同じ値）</span></label>
+        <div><input type="number" id="rate2" value="5" step="0.1"><span class="unit">%</span></div>
+      </div>
+      <div class="field fieldRow3">
+        <div class="mini">
+          <label>生活費補填</label>
+          <input type="checkbox" id="fillMode">
+        </div>
+        <div class="mini">
+          <label>取り崩し方式</label>
+          <div class="seg" id="drawMode">
+            <button data-m="amount" class="on">金額</button>
+            <button data-m="pct">％</button>
+          </div>
+        </div>
+        <div class="mini">
+          <label>取り崩し額</label>
+          <div><input type="text" inputmode="decimal" id="drawVal" value="200"><span class="unit" id="drawUnit">万円</span></div>
+        </div>
+      </div>
+      <div class="hint fieldRow3Hint">
+        生活費補填：取り崩し開始後、ONなら不足分を埋めるが下の設定（固定額/率）を上限とし、それでも埋まらない分は生活費不足として計上する。OFFなら不足の有無に関わらず常に下の設定（固定額/率）通り取り崩す／
+        取り崩し額：<span id="drawHint">毎年この金額を取り崩す（定額）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="stat">
+      <div class="k">マクロスライド 年金上乗せ率</div>
+      <div class="v" id="outSlide">–</div>
+    </div>
+    <div class="stat alt">
+      <div class="k">年金手取り</div>
+      <div class="v" id="outPension">–</div>
+    </div>
+    <div class="stat alt">
+      <div class="k">生活資金が尽きる年齢</div>
+      <div class="v" id="outFundsShort">–</div>
+    </div>
+    <div class="stat alt">
+      <div class="k">資産が尽きる年齢</div>
+      <div class="v" id="outDeplete">–</div>
+    </div>
+    <div class="stat alt">
+      <div class="k">受給開始時資産（採用値）</div>
+      <div class="v" id="outStartAsset">–</div>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <div class="tbl-title">
+      <h2>年齢別一覧（年額）</h2>
+      <div class="note">収支＝収入（給与／年金）・生活費・不足・各累計（現在年齢からの合計）　｜　資産＝残高（期首）・資産増減（＋積立／−取崩）・複利・処理後残（期末）</div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="grp age-h" rowspan="2">年齢</th>
+            <th class="grp pension" colspan="6">収支</th>
+            <th class="grp asset div" colspan="4">資産</th>
+          </tr>
+          <tr>
+            <th>収入額</th><th>生活費</th><th>不足分</th>
+            <th>収入累計</th><th>生活費累計</th><th>不足累計</th>
+            <th class="div">残高</th><th>資産増減</th><th>複利</th><th>処理後残</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--pine)"></i>受給開始年</span>
+    <span><i class="sw" style="background:var(--clay)"></i>資産が尽きる年</span>
+    <span><i class="sw" style="background:var(--gold)"></i>生活費不足＝収入と取り崩しでも不足分を埋めきれない年（受給開始後の取り崩し開始前・資産枯渇後を含む）</span>
+    <span><i class="sw" style="background:var(--surplus)"></i>不足分マイナス＝収入（給与・年金）が生活費を上回る（黒字）</span>
+    <span><i class="sw" style="background:var(--compare)"></i>他の受給開始年齢を選んでいたら支給累計が選択中を上回る年齢</span>
+  </div>
+
+  <footer>
+    ※ マクロ経済スライドの調整率は将来変動します。本ツールは物価0〜5%それぞれに対応値を固定で持つ簡易モデルで、正確な制度再現ではありません。<br>
+    ※ 物価が高い年ほど「不足分・資産増減」の額面は将来の円で膨らみます（実質の負担が同率で増えるわけではありません）。<br>
+    ※ 受給開始年齢ごとの月額は「65歳到達時の月額」を基準に、繰上げ（60〜64歳）は1ヶ月あたり0.4%減額、繰下げ（66〜75歳）は1ヶ月あたり0.7%増額として計算した概算値です。開始した年は11ヶ月分、翌年以降は12ヶ月分で計算します。金額は試算で、実際の受給額・税社会保険料とは異なります。<br>
+    ※ 「年金天引き率」は所得税・住民税・介護保険料・国民健康保険料（75歳以上は後期高齢者医療保険料）を一律の割合で概算するものです。生活費・資産の増減など、生活資金の計算に使う年金額はすべてこの天引き後（手取り）の額です。「受給開始年齢」欄・「月額支給（65歳到達時）」欄に出てくる金額は天引き前の額面のままです。実際の税・保険料は所得やお住まいの自治体によって異なります。<br>
+    ※ 退職年齢（歳・月）に達した年は、月割りで給与収入期間と退職後期間を按分します。給与は物価上昇による増額を見込まない一定額です。<br>
+    ※ 在職中は給与と生活費の差額をそのまま資産に反映します（黒字なら積立、赤字ならその場で取り崩し）。退職〜受給開始前は収入がゼロのため、また受給開始後も年金だけで生活費が赤字の年は、「取り崩し年齢」の設定に関わらず必ず資産から不足分を全額取り崩します。「取り崩し年齢」は、年金だけで生活費が黒字の間に、この年齢に達するまで資産を取り崩さない（複利のみ）という任意取り崩しの開始条件にのみ影響します。<br>
+    ※ 「受給開始時資産（現在資産からの運用予測）」は現在資産＋積立額を、受給開始年齢まで複利運用のみ（在職中の給与収支・退職後の生活費取り崩しは含めない）で計算した参考値で、常に自動計算されます。積立額は退職年齢（歳・月）を境に「毎月の積立額」→「退職後毎月の積立額」に切り替わります。<br>
+    ※ 「受給開始時資産（残予測）」は現在資産から、現在〜受給開始前の各年の実際の収支（在職中は給与と生活費の差額、退職後は無収入のため生活費を全額取り崩し、退職後積立があれば軽減）を複利運用に反映しながら受給開始年齢まで積み上げた額です。年齢別一覧表と同じロジックで計算するため、「受給開始時資産（目標）」を指定しない限り、65歳到達時点の実績（採用値）と一致します。「受給開始時資産（無職の取り崩し）」は、これと単純複利のみの運用予測との差分（不足額そのものに加え、早期取り崩しで失った複利分も含む）です。<br>
+    ※ 「受給開始時資産（目標）」を入力すると、その額を受給開始年齢時点の実際の資産額として採用し（取り崩しのソース）、それ以前の積立・複利のシミュレーション結果を上書きします。空欄または0の場合は上書きせず、在職中の収支（給与と生活費の差額）を反映した実際の残高をそのまま引き継ぎます。<br>
+    ※ 「退職後毎月の積立額」は、退職後の各年の資産増減（不足の強制補填／任意取り崩し／黒字期の複利のみ）に上乗せする追加の積立です。0なら退職後の挙動は変わりません。「受給開始時資産（現在資産からの運用予測）」にも退職年齢以降の期間はこちらの値が反映されます。
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// ▼▼▼ 設定値（ここだけ直せばOK）▼▼▼
+// ============================================================
+
+// [物価, 年金スライド率] の対応表
+// 年金は物価に連動して上がるが、マクロ経済スライドで調整分だけ抑えられる。
+// 調整率は将来変わるため、ケースごとにこの右側の数字を直せば反映される。
+const INFLATION_SLIDE_TABLE = [
+  [0.00, 0.000],  // 物価0% → 据え置き（Mスラ発動せず）
+  [0.01, 0.001],  // 物価1% → 0.1%（調整-0.9%）
+  [0.02, 0.011],  // 物価2% → 1.1%
+  [0.03, 0.021],  // 物価3% → 2.1%
+  [0.04, 0.031],  // 物価4% → 3.1%
+  [0.05, 0.041],  // 物価5% → 4.1%
+];
+
+// 65歳到達時の月額を基準に、繰上げ・繰下げの月あたり変動率で他の受給開始年齢の月額を算出する。
+const EARLY_RATE = 0.004;        // 繰上げ（65歳より前）：1ヶ月あたりの減額率
+const DEFER_RATE = 0.007;        // 繰下げ（65歳より後）：1ヶ月あたりの増額率
+const START_AGE_MIN = 60;        // 受給開始年齢の選択肢：最小
+const START_AGE_MAX = 75;        // 受給開始年齢の選択肢：最大
+
+const BASE_AGE  = 60;            // 生年月日未入力時のデフォルト現在年齢
+const MAX_AGE   = 100;           // 一覧の最終年齢
+
+// ============================================================
+// ▲▲▲ 設定値ここまで ▲▲▲
+// ============================================================
+
+const $ = id => document.getElementById(id);
+let drawMode = "amount";
+const yen = n => Math.round(n).toLocaleString("ja-JP");
+// カンマ区切り文字列 → 数値
+const num = s => +String(s).replace(/,/g,"") || 0;
+
+function slideFor(infl){
+  const row = INFLATION_SLIDE_TABLE.find(r => Math.abs(r[0]-infl) < 1e-9);
+  return row ? row[1] : Math.max(infl - 0.009, 0);
+}
+// 65歳到達時の月額(fullPenM)から、繰上げ・繰下げ率で指定年齢の月額を算出
+function pensionForAge(age, fullPenM){
+  if(age === 65) return fullPenM;
+  if(age < 65)   return fullPenM * (1 - EARLY_RATE*12*(65-age));
+  return fullPenM * (1 + DEFER_RATE*12*(age-65));
+}
+// 指定した受給開始年齢で受給した場合の支給累計の推移（currentAge〜MAX_AGE、天引き後の手取りベース）
+function cumPenTrajectory(startA, currentAge, slide, fullPenM, netRate){
+  const base = pensionForAge(startA, fullPenM) * netRate;
+  let cum = 0;
+  const arr = [];
+  for(let age=currentAge; age<=MAX_AGE; age++){
+    const n = age - currentAge;
+    const months = age===startA ? 11 : 12;
+    const penY = age>=startA ? base*Math.pow(1+slide,n)*months : 0;
+    cum += penY;
+    arr.push(cum);
+  }
+  return arr;
+}
+
+// 生年月日（年/月/日）→ 今日時点の満年齢
+function ageFromYMD(y, m, d){
+  if(!y || !m || !d) return null;
+  const b = new Date(y, m-1, d);
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  const mDiff = t.getMonth() - b.getMonth();
+  if(mDiff<0 || (mDiff===0 && t.getDate()<b.getDate())) age--;
+  return age;
+}
+
+// 退職年齢（歳）の年に占める在職月数の割合（0〜1）。退職月が0なら誕生日の時点で丸ごと退職済み。
+function workedFracAtAge(age, retireAgeYears, retireAgeMonths){
+  if(age < retireAgeYears) return 1;
+  if(age > retireAgeYears) return 0;
+  return retireAgeMonths/12;
+}
+
+function daysInMonth(y, m){ return new Date(y, m, 0).getDate(); }
+
+function fillSelect(sel, from, to){
+  sel.innerHTML = "";
+  for(let v=from; v<=to; v++){
+    const o = document.createElement("option");
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  }
+}
+
+// 選択中の年・月に合わせて日プルダウンの日数を調整（既存選択日は可能な範囲で維持）
+function refreshBirthDayOptions(){
+  const y = +$("birthYear").value, m = +$("birthMonth").value;
+  const daySel = $("birthDay");
+  const prevDay = +daySel.value || 1;
+  const maxDay = daysInMonth(y, m);
+  fillSelect(daySel, 1, maxDay);
+  daySel.value = Math.min(prevDay, maxDay);
+}
+
+// 生年月日プルダウンの初期化（デフォルト：現在年齢がBASE_AGEになる日付）
+(function initBirthDateSelects(){
+  const thisYear = new Date().getFullYear();
+  fillSelect($("birthYear"), thisYear-100, thisYear);
+  fillSelect($("birthMonth"), 1, 12);
+  $("birthYear").value  = 1960;
+  $("birthMonth").value = 1;
+  refreshBirthDayOptions();
+  $("birthDay").value = 1;
+  $("birthYear").addEventListener("input", refreshBirthDayOptions);
+  $("birthMonth").addEventListener("input", refreshBirthDayOptions);
+})();
+
+// 退職年齢プルダウンの初期化（デフォルト：65歳0ヶ月）
+const RETIRE_AGE_MIN = 40, RETIRE_AGE_MAX = 90;
+(function initRetireAgeSelects(){
+  fillSelect($("retireAgeYears"), RETIRE_AGE_MIN, RETIRE_AGE_MAX);
+  fillSelect($("retireAgeMonths"), 0, 11);
+  $("retireAgeYears").value  = 65;
+  $("retireAgeMonths").value = 0;
+})();
+
+let pendingStartAge = null; // localStorage復元用（受給開始年齢の選択肢はcalc()内で動的生成するため一時保持）
+
+// 65歳基準額からの増減率（65歳自身は空文字）
+function pensionPctLabel(age, fullPenM){
+  if(age===65) return '';
+  const pct = (pensionForAge(age, fullPenM)/fullPenM - 1)*100;
+  return ` (${pct>0?'+':''}${pct.toFixed(1)}%)`;
+}
+
+// 受給開始年齢プルダウンを、現在年齢と65歳到達時月額から動的に生成
+function refreshStartAgeOptions(currentAge, fullPenM){
+  const sel = $("startAge");
+  const prevVal = sel.value || (pendingStartAge!=null ? String(pendingStartAge) : null);
+  const min = Math.max(START_AGE_MIN, currentAge);
+  const max = START_AGE_MAX;
+  sel.innerHTML = "";
+  for(let age=min; age<=max; age++){
+    const o = document.createElement("option");
+    o.value = age;
+    o.textContent = `${age}歳  →  ${yen(pensionForAge(age, fullPenM))}円/月${pensionPctLabel(age, fullPenM)}`;
+    sel.appendChild(o);
+  }
+  if(sel.options.length===0){
+    const o = document.createElement("option");
+    o.value = currentAge;
+    o.textContent = `${currentAge}歳  →  ${yen(pensionForAge(currentAge, fullPenM))}円/月${pensionPctLabel(currentAge, fullPenM)}`;
+    sel.appendChild(o);
+  }
+  if(prevVal!=null && [...sel.options].some(o=>o.value===String(prevVal))){
+    sel.value = prevVal;
+  } else {
+    const hasDefault = [...sel.options].some(o=>+o.value===65);
+    sel.value = hasDefault ? 65 : sel.options[0].value;
+  }
+  pendingStartAge = null;
+}
+
+let pendingDrawStartAge = null; // localStorage復元用（取り崩し開始年齢の選択肢はcalc()内で動的生成するため一時保持）
+
+// 取り崩し開始年齢プルダウンを、現在年齢から動的に生成（デフォルト＝現在年齢＝即時取り崩し開始）
+function refreshDrawStartAgeOptions(currentAge){
+  const sel = $("drawStartAge");
+  const prevVal = sel.value || (pendingDrawStartAge!=null ? String(pendingDrawStartAge) : null);
+  sel.innerHTML = "";
+  for(let age=currentAge; age<=MAX_AGE; age++){
+    const o = document.createElement("option");
+    o.value = age; o.textContent = `${age}歳`;
+    sel.appendChild(o);
+  }
+  if(prevVal!=null && [...sel.options].some(o=>o.value===String(prevVal))){
+    sel.value = prevVal;
+  } else {
+    sel.value = currentAge;
+  }
+  pendingDrawStartAge = null;
+}
+
+// 物価プルダウンを対応表から生成
+(function initInflation(){
+  const sel = $("inflation");
+  INFLATION_SLIDE_TABLE.forEach(([infl, slide])=>{
+    const o = document.createElement("option");
+    o.value = infl;
+    o.textContent = `物価 ${(infl*100).toFixed(0)}％  →  年金上乗せ ${(slide*100).toFixed(1)}％`;
+    sel.appendChild(o);
+  });
+  sel.value = 0.01; // 初期：物価1%
+})();
+
+// 金額入力（カンマ区切り表示）：フォーカス中は生数字、外れたらカンマ整形
+// allowBlank=trueの項目は、空欄のまま触らなければ0円に丸めず空欄を維持する（自動計算に使う目印のため）
+function bindCommaInput(el, allowBlank){
+  el.addEventListener("focus", ()=>{ if(allowBlank && el.value.trim()==="") return; el.value = String(num(el.value)); });
+  el.addEventListener("blur",  ()=>{ if(allowBlank && el.value.trim()==="") return; el.value = num(el.value).toLocaleString("ja-JP"); });
+}
+bindCommaInput($("assetInit"));
+bindCommaInput($("drawVal"));
+bindCommaInput($("pension65"));
+bindCommaInput($("salaryM"));
+bindCommaInput($("monthlyContrib"));
+bindCommaInput($("postRetireContrib"));
+bindCommaInput($("startAssetGoal"), true);
+
+// 2箇所に表示している同一項目（初期資産・複利）の入力を同期する
+function bindSyncPair(a, b){
+  const copy = (from, to) => { if(to.value !== from.value) to.value = from.value; };
+  a.addEventListener("input", ()=> copy(a,b));
+  a.addEventListener("blur",  ()=> copy(a,b));
+  b.addEventListener("input", ()=> copy(b,a));
+  b.addEventListener("blur",  ()=> copy(b,a));
+}
+bindSyncPair($("rate"), $("rate2"));
+
+// 入力条件をlocalStorageに保存し、次回起動時の初期値にする
+const STORAGE_KEY = "pensionSimSettings";
+function saveSettings(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      birthYear: $("birthYear").value,
+      birthMonth: $("birthMonth").value,
+      birthDay: $("birthDay").value,
+      salaryM: $("salaryM").value,
+      retireAgeYears: $("retireAgeYears").value,
+      retireAgeMonths: $("retireAgeMonths").value,
+      postRetireContrib: $("postRetireContrib").value,
+      laborLivingM: $("laborLivingM").value,
+      pension65: $("pension65").value,
+      pensionDeductionRate: $("pensionDeductionRate").value,
+      startAge: $("startAge").value,
+      livingM: $("livingM").value,
+      inflation: $("inflation").value,
+      assetInit: $("assetInit").value,
+      monthlyContrib: $("monthlyContrib").value,
+      rate: $("rate").value,
+      startAssetGoal: $("startAssetGoal").value,
+      drawStartAge: $("drawStartAge").value,
+      fillMode: $("fillMode").checked,
+      drawMode: drawMode,
+      drawVal: $("drawVal").value,
+    }));
+  }catch(e){}
+}
+function restoreSettings(){
+  let saved;
+  try{ saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); }catch(e){ saved = null; }
+  if(!saved) return;
+  if(saved.birthYear!=null)  $("birthYear").value  = saved.birthYear;
+  if(saved.birthMonth!=null) $("birthMonth").value = saved.birthMonth;
+  if(saved.birthMonth!=null || saved.birthYear!=null) refreshBirthDayOptions();
+  if(saved.birthDay!=null)   $("birthDay").value   = saved.birthDay;
+  if(saved.salaryM!=null) $("salaryM").value = saved.salaryM;
+  if(saved.retireAgeYears!=null) $("retireAgeYears").value = saved.retireAgeYears;
+  if(saved.retireAgeMonths!=null) $("retireAgeMonths").value = saved.retireAgeMonths;
+  if(saved.postRetireContrib!=null) $("postRetireContrib").value = saved.postRetireContrib;
+  if(saved.laborLivingM!=null) $("laborLivingM").value = saved.laborLivingM;
+  if(saved.pension65!=null) $("pension65").value = saved.pension65;
+  if(saved.pensionDeductionRate!=null) $("pensionDeductionRate").value = saved.pensionDeductionRate;
+  if(saved.startAge!=null) pendingStartAge = saved.startAge;
+  if(saved.livingM!=null) $("livingM").value = saved.livingM;
+  if(saved.inflation!=null) $("inflation").value = saved.inflation;
+  if(saved.assetInit!=null) $("assetInit").value = saved.assetInit;
+  if(saved.monthlyContrib!=null) $("monthlyContrib").value = saved.monthlyContrib;
+  if(saved.rate!=null) { $("rate").value = saved.rate; $("rate2").value = saved.rate; }
+  if(saved.startAssetGoal!=null) $("startAssetGoal").value = saved.startAssetGoal;
+  if(saved.drawStartAge!=null) pendingDrawStartAge = saved.drawStartAge;
+  if(saved.fillMode!=null) $("fillMode").checked = saved.fillMode;
+  if(saved.drawVal!=null) $("drawVal").value = saved.drawVal;
+  if(saved.drawMode){
+    drawMode = saved.drawMode;
+    [...$("drawMode").children].forEach(x=> x.classList.toggle("on", x.dataset.m===drawMode));
+    if(drawMode==="amount"){ $("drawUnit").textContent="万円"; $("drawHint").textContent="毎年この金額を取り崩す（定額）"; }
+    else { $("drawUnit").textContent="%"; $("drawHint").textContent="毎年の残高に対する割合で取り崩す（定率）"; }
+  }
+}
+restoreSettings();
+
+function calc(){
+  const currentAge = ageFromYMD(+$("birthYear").value, +$("birthMonth").value, +$("birthDay").value) ?? BASE_AGE;
+  const fullPenM = num($("pension65").value);
+  refreshStartAgeOptions(currentAge, fullPenM);
+  refreshDrawStartAgeOptions(currentAge);
+  const startAge = +$("startAge").value;
+  const drawStartAge = +$("drawStartAge").value;
+  const livingM  = (+$("livingM").value||0)*10000; // 万円 → 円（退職後の生活費）
+  const salaryM  = num($("salaryM").value)*10000; // 万円 → 円（手取月額）
+  const laborLivingM = (+$("laborLivingM").value||0)*10000; // 万円 → 円（在職中の生活費）
+  const retireAgeYears  = +$("retireAgeYears").value;
+  const retireAgeMonths = +$("retireAgeMonths").value;
+  const postRetireContribY = num($("postRetireContrib").value)*10000*12; // 万円/月 → 円/年（退職後毎月の積立額）
+  const infl     = +$("inflation").value;
+  const slide    = slideFor(infl);
+  const assetInit= num($("assetInit").value)*10000; // 万円 → 円
+  const monthlyContrib = num($("monthlyContrib").value)*10000; // 万円 → 円
+  const rate     = (+$("rate").value||0)/100;
+  const startAssetGoalRaw = $("startAssetGoal").value.trim();
+  const startAssetGoalNum = num(startAssetGoalRaw)*10000; // 万円 → 円
+  const startAssetGoal = (startAssetGoalRaw==="" || startAssetGoalNum===0) ? null : startAssetGoalNum; // 空欄・0はどちらも「未指定」扱い（上書きしない）
+  const drawRaw  = num($("drawVal").value);
+  const drawVal  = drawMode==="amount" ? drawRaw*10000 : drawRaw; // 万円 → 円（金額モードのみ）
+  const fillMode = $("fillMode").checked;
+  const pensionDeductionRate = (+$("pensionDeductionRate").value||0)/100; // 年金天引き率（所得税・住民税・介護保険料等）
+  const pensionNetRate = 1 - pensionDeductionRate;
+
+  const basePenM = pensionForAge(startAge, fullPenM); // 額面（65歳到達時の月額を基準に繰上げ/繰下げ調整した額）
+
+  // 受給開始時資産（現在資産からの運用予測）：現在資産＋積立額を、受給開始年齢まで複利運用のみ（在職中の収支は含めない）で計算。
+  // 退職年齢（歳＋月）を境に、積立額を「毎月の積立額」→「退職後毎月の積立額」に切り替える。
+  const yearsToStart  = Math.max(startAge-currentAge, 0);
+  const monthlyRate = rate/12;
+  const postRetireContribM = num($("postRetireContrib").value)*10000; // 万円/月 → 円/月
+  const retireYearsFromNow = Math.min(Math.max((retireAgeYears + retireAgeMonths/12) - currentAge, 0), yearsToStart);
+  const workMonths = Math.round(retireYearsFromNow*12);
+  const postMonths = Math.round(yearsToStart*12) - workMonths;
+  function fvStage(principal, contribM, months){
+    const fvP = principal * Math.pow(1+monthlyRate, months);
+    const fvC = monthlyRate===0 ? contribM*months
+      : contribM * ((Math.pow(1+monthlyRate, months) - 1) / monthlyRate);
+    return fvP + fvC;
+  }
+  const afterWorkAsset = fvStage(assetInit, monthlyContrib, workMonths);
+  const forecastStartAsset = fvStage(afterWorkAsset, postRetireContribM, postMonths);
+  $("outStartAssetForecast").textContent = yen(forecastStartAsset);
+
+  // 受給開始時資産（残予測）：現在資産から、実際の年次収支（給与/生活費の差額、退職後は無収入で生活費を全額取り崩し）を
+  // 複利運用に反映しながら受給開始年齢まで積み上げる。下の本シミュレーション（年齢別一覧）と全く同じロジックなので、
+  // 「受給開始時資産（目標）」を指定しない限り、65歳到達時点の実績（採用値）と必ず一致する。
+  let simBal = assetInit;
+  for(let age=currentAge; age<startAge; age++){
+    const n = age - currentAge;
+    const workedFrac  = workedFracAtAge(age, retireAgeYears, retireAgeMonths);
+    const retiredFrac = 1 - workedFrac;
+    const incY  = workedFrac*(salaryM*12);
+    const liveY = workedFrac*(laborLivingM*Math.pow(1+infl, n)*12) + retiredFrac*(livingM*Math.pow(1+infl, n)*12);
+    const shortY = liveY - incY;
+    const working = age < retireAgeYears;
+    const draw = working ? shortY : (shortY - postRetireContribY);
+    let next = simBal*(1+rate) - draw;
+    if(next < 0) next = 0;
+    simBal = next;
+  }
+  const remainingForecast = simBal;
+  $("outRemainingForecast").textContent = yen(remainingForecast);
+  $("startAssetGoal").placeholder = Math.round(remainingForecast/10000).toLocaleString("ja-JP"); // 空欄時は残予測を薄字で表示
+
+  // 受給開始時資産（無職の取り崩し）：上の「運用予測（在職収支を含めない単純複利）」と「残予測（実際の収支込み）」の差分。
+  // 単なる不足額の合計ではなく、早期の取り崩しで失われた複利分も含めた実際の目減り額。
+  const unemployedDraw = forecastStartAsset - remainingForecast;
+  $("outUnemployedDraw").textContent = unemployedDraw>0 ? `-${yen(unemployedDraw)}` : yen(0);
+
+  // 受給開始時資産（目標）：入力があればその値を取り崩しのソース（その年齢の実際の資産額）として採用し、
+  // それまでの積立実績を上書きする。空欄なら上書きせず、在職中の収支を反映した実際の残高をそのまま引き継ぐ
+  // （「残予測」はあくまで参考値として別枠で表示し続ける）。
+
+  // 読み出し
+  $("outSlide").innerHTML = `${(slide*100).toFixed(1)}<small>％</small>`;
+  $("currentAgeOut").textContent = currentAge;
+  $("outPension").innerHTML = `${yen(basePenM*pensionNetRate)}<small> 円/月</small>`;
+  $("outPensionNetCard").textContent = yen(basePenM*pensionNetRate);
+
+  // 資産：現在年齢の残高から毎年複利＋資産増減、0で下げ止め
+  let bal = assetInit, depleteAge = null;
+  let cumInc=0, cumLive=0, cumShort=0, cumPen=0;
+  let actualStartAsset = startAssetGoal!=null ? startAssetGoal : remainingForecast; // 受給開始年齢に到達しない場合（既に受給開始年齢を過ぎている）のフォールバック表示用
+
+  const rows = [];
+  for(let age=currentAge; age<=MAX_AGE; age++){
+    const n = age - currentAge;
+    // 退職年齢（歳＋月）に達する年は在職月数の割合で按分し、給与/在職生活費と年金/退職後生活費を混合する
+    const workedFrac  = workedFracAtAge(age, retireAgeYears, retireAgeMonths);
+    const retiredFrac = 1 - workedFrac;
+    const months = age===startAge ? 11 : 12;
+    const penY   = age>=startAge ? basePenM*pensionNetRate*Math.pow(1+slide,n)*months : 0;
+    const incY  = workedFrac*(salaryM*12) + retiredFrac*penY;
+    const liveY = workedFrac*(laborLivingM*Math.pow(1+infl,n)*12) + retiredFrac*(livingM*Math.pow(1+infl,n)*12);
+    const shortY = liveY - incY;
+    const working = age < retireAgeYears; // 資産の扱い（積立/取り崩し）は退職年齢に達するまでを在職として扱う
+
+    // 受給開始年齢に達した年：目標が指定されていればそれまでの積立実績を破棄して上書きする。
+    // 未指定なら上書きせず、在職中の収支を反映した実際の残高をそのまま引き継ぐ。
+    if(age===startAge){
+      if(startAssetGoal!=null) bal = startAssetGoal;
+      actualStartAsset = bal;
+    }
+    const balStart = bal; // その年の期首残高（表示用）
+
+    const noIncomeGap = !working && age<startAge; // 退職済みだが年金受給前＝収入ゼロ。生活費不足は生きていけないので必ず資産から取り崩す
+    // 受給開始後で取り崩し年齢未到達でも、赤字（生活費>年金）は生きていくため必ず埋める。取り崩し年齢は黒字時の任意取り崩し開始のみを左右する。
+    const deficitBeforeDrawStart = !working && !noIncomeGap && age<drawStartAge && shortY>0;
+    const forcedFund = working || noIncomeGap || deficitBeforeDrawStart;
+    const interest = bal*rate;
+    let draw;
+    if(working){
+      // 在職中は給与と生活費の差額をそのまま資産に反映（黒字＝積立、赤字＝取り崩し）
+      draw = shortY;
+      let next = bal*(1+rate) - draw;
+      if(next < 0){ draw = bal*(1+rate); next = 0; if(depleteAge===null) depleteAge=age; }
+      bal = next;
+    } else {
+      // 退職後：まず必要な資産増減（不足の強制補填／任意取り崩し／黒字期は複利のみ＝0）を決め、
+      // そこに「退職後毎月の積立額」を上乗せする（0なら従来通り）。
+      let baseDraw;
+      if(noIncomeGap || deficitBeforeDrawStart){
+        baseDraw = shortY;
+      } else if(age>=drawStartAge){
+        // 取り崩し開始後：補填ONなら不足分を埋めるが取り崩し額（固定額/率）を上限とする。OFFなら常に固定額/率
+        const fixedDraw = drawMode==="amount" ? drawVal : bal*(drawVal/100);
+        baseDraw = fillMode ? Math.min(Math.max(shortY, 0), fixedDraw) : fixedDraw;
+      } else {
+        // 取り崩し開始前かつ黒字：資産は取り崩さず、複利のみ
+        baseDraw = 0;
+      }
+      draw = baseDraw - postRetireContribY;
+      let next = bal*(1+rate) - draw;
+      if(next < 0){ draw = bal*(1+rate); next = 0; if(depleteAge===null) depleteAge=age; }
+      bal = next;
+    }
+
+    cumInc += incY; cumLive += liveY;
+    cumPen += retiredFrac*penY; // 年金のみの累計（他の受給開始年齢との比較用）
+    // 不足累計：強制補填の年は全額取り崩すため常に0寄与。取り崩し開始後（黒字時任意取り崩し局面）は補填ONなら取り崩した分を差し引いた「埋まっていない不足」の累計。
+    cumShort += forcedFund ? (shortY - draw) : (fillMode ? (shortY - draw) : shortY);
+
+    rows.push({age, incY, liveY, shortY, cumInc, cumLive, cumShort, cumPen, balStart, balShown:bal, draw, interest, working,
+               isStart:age===startAge, isDeplete: depleteAge===age});
+  }
+
+  $("outStartAsset").innerHTML = `${yen(actualStartAsset)}<small> 円${startAssetGoal!=null?'':'（実績）'}</small>`;
+
+  $("outDeplete").innerHTML = depleteAge ? `${depleteAge}<small> 歳</small>` : `${MAX_AGE}<small>歳超</small>`;
+
+  // 生活資金が尽きる年齢：収入＋取り崩しでもその年の生活費を賄いきれない、最初の年齢
+  const firstUnmet = rows.find(r => !r.isDeplete && r.shortY>0 && r.draw<r.shortY);
+  $("outFundsShort").innerHTML = firstUnmet ? `${firstUnmet.age}<small> 歳</small>` : `${MAX_AGE}<small>歳超</small>`;
+
+  // 他の受給開始年齢を選んでいたら、支給累計が選択中の年齢をいつ上回るか
+  // ※選択中がまだ受給開始前だと他の年齢は無条件で上回ってしまうため、比較は選択中の受給開始年齢以降に限定する
+  // ※比較開始時点で既に上回っている（＝逆転が起きたわけではない）ものは対象外にする
+  const crossByAge = {};
+  const cmpStartIdx = Math.max(0, startAge - currentAge);
+  const altMin = Math.max(START_AGE_MIN, currentAge);
+  for(let altAge=altMin; altAge<=START_AGE_MAX; altAge++){
+    if(altAge===startAge) continue;
+    const traj = cumPenTrajectory(altAge, currentAge, slide, fullPenM, pensionNetRate);
+    for(let i=cmpStartIdx; i<rows.length; i++){
+      if(traj[i] > rows[i].cumPen){
+        if(i > cmpStartIdx){
+          (crossByAge[rows[i].age] = crossByAge[rows[i].age] || []).push(altAge);
+        }
+        break;
+      }
+    }
+  }
+
+  // 描画
+  const tb = $("rows");
+  tb.innerHTML = rows.map(r=>{
+    // 生活費不足＝その年の収入・取り崩しでも不足分を埋めきれなかった（取り崩し開始前・資産枯渇後を含む）
+    const unmet = !r.isDeplete && r.shortY>0 && r.draw<r.shortY;
+    const cls = [r.isStart?"startrow":"", r.isDeplete?"deplete":"", unmet?"unmet":""].join(" ").trim();
+    const shortCls = r.shortY<0 ? "surplus" : (r.shortY>0?"short":"");
+    const cumShortCls = r.cumShort<0 ? "surplus" : (r.cumShort>0?"short":"");
+    // 資産増減＝取り崩し(draw)の符号反転。プラス＝積立（在職中の黒字）、マイナス＝取り崩し。
+    const delta = -r.draw;
+    const flowCls = delta>0 ? "surplus" : (delta<0 ? "short" : "");
+    let flag = '';
+    if(r.isStart) flag += '<span class="flag">受給開始</span>';
+    if(r.isDeplete) flag += '<span class="flag d">枯渇</span>';
+    if(unmet) flag += '<span class="flag u">生活費不足</span>';
+    (crossByAge[r.age]||[]).forEach(a=> flag += `<span class="flag c">${a}歳が上回る</span>`);
+    return `<tr class="${cls}">
+      <td class="age"><div class="age-num">${r.age}</div>${flag?`<div class="age-flags">${flag}</div>`:''}</td>
+      <td>${r.incY? yen(r.incY):'—'}</td>
+      <td>${yen(r.liveY)}</td>
+      <td class="${shortCls}">${yen(r.shortY)}</td>
+      <td>${r.cumInc? yen(r.cumInc):'—'}</td>
+      <td>${yen(r.cumLive)}</td>
+      <td class="${cumShortCls}">${yen(r.cumShort)}</td>
+      <td class="div">${yen(r.balStart)}</td>
+      <td class="${flowCls}">${delta? (delta>0?'+':'')+yen(delta) : '—'}</td>
+      <td>${r.interest? yen(r.interest):'—'}</td>
+      <td>${yen(r.balShown)}</td>
+    </tr>`;
+  }).join("");
+}
+
+// 補足説明（各入力のヒント文）の表示切替：チェックONで表示、OFFで非表示
+$("showSupplement").addEventListener("change", ()=>{
+  document.body.classList.toggle("showHints", $("showSupplement").checked);
+});
+
+// 取り崩し方式トグル
+$("drawMode").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  drawMode = b.dataset.m;
+  [...$("drawMode").children].forEach(x=>x.classList.toggle("on", x===b));
+  if(drawMode==="amount"){ $("drawUnit").textContent="万円"; $("drawVal").value=(200).toLocaleString("ja-JP"); $("drawHint").textContent="毎年この金額を取り崩す（定額）"; }
+  else { $("drawUnit").textContent="%"; $("drawVal").value="5"; $("drawHint").textContent="毎年の残高に対する割合で取り崩す（定率）"; }
+  calc();
+  saveSettings();
+});
+
+document.querySelectorAll("input,select").forEach(el=> el.addEventListener("input", ()=>{ calc(); saveSettings(); }));
+calc();
+</script>
+</body>
+</html>
